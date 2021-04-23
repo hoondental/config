@@ -6,12 +6,17 @@ config class and decorator
 from config import Config, configurable
 
 class B:
+
     pass
 
 @configurable()
+
 class A:
+
     def __init__(self, a=2, b=B()):
+    
         self.a = a
+        
         self.b = b      
         
         
