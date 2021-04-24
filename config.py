@@ -200,10 +200,13 @@ def _configurable(cls, **kwargs):
                 kwargs[k] = v.create_object()
         model = cls(**kwargs)
         return model
-  
-    cls.default_config = default_config
-    cls.current_config = current_config
-    cls.from_config = from_config          
+    
+    if not hasattr(cls, 'default_config'):   
+        cls.default_config = default_config
+    if not hasattr(cls, 'current_config'):
+        cls.current_config = current_config
+    if not hasattr(cls, 'from_config'):
+        cls.from_config = from_config          
     return cls
 
     
