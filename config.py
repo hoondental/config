@@ -40,7 +40,7 @@ class Config:
                 continue
             if isinstance(v, Config):
                 result += prefix + k + ' : ' + '\n' + v.__str__(prefix=prefix+'    ')
-            else:im
+            else:
                 result += prefix + k + ' : ' + str(v) + '\n'
         return result
     
@@ -64,6 +64,18 @@ class ConfigList(Config):
         self.configs = configs
         self.freeze()
         
+    def __str__(self, prefix=''):
+        result = prefix + 'cls : ' + str(self.cls) + '\n'
+        for i, c in enumerate(self.configs):
+            result += prefix + str(i) + ' : ' + '\n' + c.__str__(prefix=prefix+'    ')
+        return result
+    
+    def __repr__(self, prefix=''):
+        result = prefix + 'cls : ' + str(self.cls) + '\n'
+        for i, c in enumerate(self.configs):
+            result += prefix + str(i) + ' : ' + '\n' + c.__repr__(prefix=prefix+'    ')
+        return result
+        
     def create_object(self):
         _torch = True
         models = []
@@ -74,7 +86,7 @@ class ConfigList(Config):
             models.append(m)
         if _torch:
             models = nn.ModuleList(models)
-        return model
+        return models
         
         
 class ConfigDict(Config):
@@ -87,7 +99,7 @@ class ConfigDict(Config):
         
     def create_object(self):
         _torch = True
-        models = []
+        models = {}
         for k, v in self.configs.items():
             m = v.create_object()
             if not isinstance(m, nn.Module):
@@ -95,9 +107,19 @@ class ConfigDict(Config):
             models[k] = m
         if _torch:
             models = nn.ModuleDict(models)
-        return model
+        return models
     
+    def __str__(self, prefix=''):
+        result = prefix + 'cls : ' + str(self.cls) + '\n'
+        for k, v in self.configs.items():
+            result += prefix + k + ' : ' + '\n' + v.__str__(prefix=prefix+'    ')
+        return result
     
+    def __repr__(self, prefix=''):
+        result = prefix + 'cls : ' + str(self.cls) + '\n'
+        for k, v in self.configs.items():
+            result += prefix + k + ' : ' + '\n' + v.__repr__(prefix=prefix+'    ')
+        return result
     
     
     
