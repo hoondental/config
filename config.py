@@ -168,7 +168,7 @@ def _configurable(cls, **kwargs):
             raise Exception('Arguments of a configurable class without default value must be provided by a value in the decorator.')
         c = _get_config(value)
         args_dict[name] = value if c is None else c
-    
+     
     @classmethod
     def default_config(cls, **kwargs):
         cfg = Config(cls)
@@ -200,11 +200,11 @@ def _configurable(cls, **kwargs):
                 kwargs[k] = v.create_object()
         model = cls(**kwargs)
         return model
-    
+  
     cls.default_config = default_config
     cls.current_config = current_config
-    cls.from_config = from_config
-    
+    cls.from_config = from_config          
     return cls
+
     
         
