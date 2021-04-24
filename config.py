@@ -1,6 +1,8 @@
 import inspect
 from functools import partial
 
+import torch, torch.nn as nn
+
 
 
 class Config:
@@ -38,7 +40,7 @@ class Config:
                 continue
             if isinstance(v, Config):
                 result += prefix + k + ' : ' + '\n' + v.__str__(prefix=prefix+'    ')
-            else:
+            else:im
                 result += prefix + k + ' : ' + str(v) + '\n'
         return result
     
@@ -53,6 +55,47 @@ class Config:
                 result += prefix + k + ' : ' + repr(v) + '\n'
         return result  
     
+
+class ConfigList(Config):
+    def __init__(self, configs=[]):
+        self.cls = type(self)
+        for c in configs:
+            assert isinstance(c, Config)
+        self.configs = configs
+        self.freeze()
+        
+    def create_object(self):
+        _torch = True
+        models = []
+        for c in self.configs:
+            m = c.create_object()
+            if not isinstance(m, nn.Module):
+                _torch = False
+            models.append(m)
+        if _torch:
+            models = nn.ModuleList(models)
+        return model
+        
+        
+class ConfigDict(Config):
+    def __init__(self, configs={}):
+        self.cls = type(self)
+        for k, v in configs.items():
+            assert isinstance(v, Config)
+        self.configs = configs
+        self.freeze()
+        
+    def create_object(self):
+        _torch = True
+        models = []
+        for k, v in self.configs.items():
+            m = v.create_object()
+            if not isinstance(m, nn.Module):
+                _torch = False
+            models[k] = m
+        if _torch:
+            models = nn.ModuleDict(models)
+        return model
     
     
     
@@ -63,29 +106,46 @@ def configurable(**kwargs):
     
     
 def _configurable(cls, **kwargs):
+    def _get_config(m):
+        if hasattr(m, 'current_config'):
+            return m.current_config()
+        elif isinstance(m, list) or isinstance(m, tuple) or isinstance(m, nn.ModuleList):
+            cfgs = []
+            for _m in m:
+                _c = _get_config(_m)
+                if _c is None:
+                    return None
+                cfgs.append(_c)
+            return ConfigList(cfgs)
+        elif isinstance(m, dict) or isinstance(m, nn.ModuleDict):
+            cfgs = {}
+            for _k, _m in m.items():
+                _c = _get_config(_m)
+                if _c is None:
+                    return None
+                cfgs[_k] = _c
+            return ConfigDict(cfgs)
+        else:
+            return None                
+    
     init_args = inspect.getfullargspec(cls.__init__)
     init_arg_names = init_args.args[1:]
     init_arg_defaults = init_args.defaults
     len_names = len(init_arg_names)
     len_defaults = len(init_arg_defaults)
+    len_non_defaults = len_names - len_defaults
     args_dict = {}
-    for i in range(len_names - len_defaults):
-        name = init_arg_names[i]
-        if not name in kwargs.keys():
-            raise Exception('Arguments of a configurable class without default value must be provided by a value in the decorator.')
-        value = kwargs[name]
-        args_dict[name] = value
-    for j in range(len_defaults):
-        i = j + (len_names - len_defaults)
+    for i in range(len_names):
         name = init_arg_names[i]
         if name in kwargs.keys():
             value = kwargs[name]
+        elif i >= len_non_defaults:
+            j = i - len_non_defaults
+            value = init_arg_defaults[j]
         else:
-            value = init_arg_defaults[j]            
-        args_dict[name] = value
-    for k, v in args_dict.items():
-        if hasattr(v, 'current_config'):
-            args_dict[k] = v.current_config()
+            raise Exception('Arguments of a configurable class without default value must be provided by a value in the decorator.')
+        c = _get_config(value)
+        args_dict[name] = value if c is None else c
     
     @classmethod
     def default_config(cls, **kwargs):
@@ -101,10 +161,10 @@ def _configurable(cls, **kwargs):
             if k == 'cls' or k =='isfrozen':
                 continue
             if hasattr(self, k):
-                v = getattr(self, k)
-            if hasattr(v, 'current_config'):
-                v = v.current_config()
-            setattr(cfg, k, v)
+                m = getattr(self, k)
+                c = _get_config(m)
+                c = c or m
+                setattr(cfg, k, c)
         return cfg
     
     @classmethod
