@@ -122,41 +122,43 @@ class ConfigDict(Config):
         return result
     
     
+def get_config(m):
+    if hasattr(m, 'current_config'):
+        return m.current_config()
+    elif isinstance(m, list) or isinstance(m, tuple) or isinstance(m, nn.ModuleList):
+        cfgs = []
+        for _m in m:
+            _c = get_config(_m)
+            if _c is None:
+                return None
+            cfgs.append(_c)
+        return ConfigList(cfgs)
+    elif isinstance(m, dict) or isinstance(m, nn.ModuleDict):
+        cfgs = {}
+        for _k, _m in m.items():
+            _c = get_config(_m)
+            if _c is None:
+                return None
+            cfgs[_k] = _c
+        return ConfigDict(cfgs)
+    else:
+        return None      
+    
     
 def configurable(**kwargs):
     return partial(_configurable, **kwargs)
     
     
 def _configurable(cls, **kwargs):
-    def _get_config(m):
-        if hasattr(m, 'current_config'):
-            return m.current_config()
-        elif isinstance(m, list) or isinstance(m, tuple) or isinstance(m, nn.ModuleList):
-            cfgs = []
-            for _m in m:
-                _c = _get_config(_m)
-                if _c is None:
-                    return None
-                cfgs.append(_c)
-            return ConfigList(cfgs)
-        elif isinstance(m, dict) or isinstance(m, nn.ModuleDict):
-            cfgs = {}
-            for _k, _m in m.items():
-                _c = _get_config(_m)
-                if _c is None:
-                    return None
-                cfgs[_k] = _c
-            return ConfigDict(cfgs)
-        else:
-            return None                
-    
     init_args = inspect.getfullargspec(cls.__init__)
     init_arg_names = init_args.args[1:]
-    init_arg_defaults = init_args.defaults
+    init_arg_defaults = init_args.defaults or []
     len_names = len(init_arg_names)
     len_defaults = len(init_arg_defaults)
     len_non_defaults = len_names - len_defaults
+    cfgs_dict = {}
     args_dict = {}
+    cfgargs_dict = {}
     for i in range(len_names):
         name = init_arg_names[i]
         if name in kwargs.keys():
@@ -166,13 +168,32 @@ def _configurable(cls, **kwargs):
             value = init_arg_defaults[j]
         else:
             raise Exception('Arguments of a configurable class without default value must be provided by a value in the decorator.')
-        c = _get_config(value)
-        args_dict[name] = value if c is None else c
+        c = get_config(value)
+        cfgs_dict[name] = c
+        args_dict[name] = value
+        cfgargs_dict[name] = value if c is None else c
+        
+    cls.old__init__ = cls.__init__          
+    def new__init__(self, *args, **kwargs):
+        _args = []
+        _kwargs = {}
+        for i, arg in enumerate(args):
+            k = init_arg_names[i]
+            _kwargs[k] = arg
+        for k, arg in kwargs:
+            _kwargs[k] = arg
+        for k in init_arg_names:
+            if k in _kwargs.keys():
+                continue
+            arg = args_dict[k]
+            _kwargs[k] = arg.current_config().create_object() if hasattr(arg, 'current_config') else arg
+        cls.old__init__(self, **_kwargs)        
+    cls.__init__ = new__init__        
      
     @classmethod
     def default_config(cls, **kwargs):
         cfg = Config(cls)
-        cfg.setattrs(args_dict)
+        cfg.setattrs(cfgargs_dict)
         cfg.setattrs(kwargs)
         cfg.freeze()
         return cfg
@@ -184,7 +205,7 @@ def _configurable(cls, **kwargs):
                 continue
             if hasattr(self, k):
                 m = getattr(self, k)
-                c = _get_config(m)
+                c = get_config(m)
                 c = c or m
                 setattr(cfg, k, c)
         return cfg
