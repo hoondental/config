@@ -180,7 +180,7 @@ def _configurable(cls, **kwargs):
         for i, arg in enumerate(args):
             k = init_arg_names[i]
             _kwargs[k] = arg
-        for k, arg in kwargs:
+        for k, arg in kwargs.items():
             _kwargs[k] = arg
         for k in init_arg_names:
             if k in _kwargs.keys():
