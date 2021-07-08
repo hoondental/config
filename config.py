@@ -1,5 +1,6 @@
 import inspect
 from functools import partial
+import copy
 
 import torch, torch.nn as nn
 
@@ -64,6 +65,7 @@ class ConfigList(Config):
         self.configs = configs
         self.freeze()
         
+       
     def __str__(self, prefix=''):
         result = prefix + 'cls : ' + str(self.cls) + '\n'
         for i, c in enumerate(self.configs):
@@ -75,6 +77,14 @@ class ConfigList(Config):
         for i, c in enumerate(self.configs):
             result += prefix + str(i) + ' : ' + '\n' + c.__repr__(prefix=prefix+'    ')
         return result
+    
+    def __getitem__(self, i):
+        return self.configs[i]
+    
+    def append(self, c):
+        assert isinstance(c, Config)
+        self.configs.append(c)
+        
         
     def create_object(self):
         _torch = True
@@ -120,6 +130,13 @@ class ConfigDict(Config):
         for k, v in self.configs.items():
             result += prefix + k + ' : ' + '\n' + v.__repr__(prefix=prefix+'    ')
         return result
+    
+    def __getitem__(self, i):
+        return self.configs[i]
+    
+    def __setitem__(self, i, v):
+        assert isinstance(v, Config)
+        self.configs[i] = v
     
     
 def get_config(m):
@@ -193,7 +210,7 @@ def _configurable(cls, **kwargs):
     @classmethod
     def default_config(cls, **kwargs):
         cfg = Config(cls)
-        cfg.setattrs(cfgargs_dict)
+        cfg.setattrs(copy.deepcopy(cfgargs_dict))
         cfg.setattrs(kwargs)
         cfg.freeze()
         return cfg
@@ -222,12 +239,9 @@ def _configurable(cls, **kwargs):
         model = cls(**kwargs)
         return model
     
-    if not hasattr(cls, 'default_config'):   
-        cls.default_config = default_config
-    if not hasattr(cls, 'current_config'):
-        cls.current_config = current_config
-    if not hasattr(cls, 'from_config'):
-        cls.from_config = from_config          
+    cls.default_config = default_config
+    cls.current_config = current_config
+    cls.from_config = from_config          
     return cls
 
     
