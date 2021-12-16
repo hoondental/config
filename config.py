@@ -62,7 +62,7 @@ class ConfigList(Config):
         self.cls = type(self)
         for c in configs:
             assert isinstance(c, Config)
-        self.configs = configs
+        self.configs = copy.deepcopy(configs)
         self.freeze()
         
        
@@ -81,10 +81,22 @@ class ConfigList(Config):
     def __getitem__(self, i):
         return self.configs[i]
     
+    def __len__(self):
+        return len(self.configs)
+    
     def append(self, c):
         assert isinstance(c, Config)
         self.configs.append(c)
         
+    def insert(self, idx, c):
+        assert isinstance(c, Config)
+        self.configs.insert(idx, c)
+        
+    def remove(self, x):
+        self.configs.remove(x)
+        
+    def pop(self, idx):
+        return self.configs.pop(idx)        
         
     def create_object(self):
         _torch = True
@@ -94,7 +106,7 @@ class ConfigList(Config):
             if not isinstance(m, nn.Module):
                 _torch = False
             models.append(m)
-        if _torch:
+        if _torch and len(self.configs) > 0:
             models = nn.ModuleList(models)
         return models
         
@@ -104,7 +116,7 @@ class ConfigDict(Config):
         self.cls = type(self)
         for k, v in configs.items():
             assert isinstance(v, Config)
-        self.configs = configs
+        self.configs = copy.deepcopy(configs)
         self.freeze()
         
     def create_object(self):
@@ -115,7 +127,7 @@ class ConfigDict(Config):
             if not isinstance(m, nn.Module):
                 _torch = False
             models[k] = m
-        if _torch:
+        if _torch and len(self.configs) > 0:
             models = nn.ModuleDict(models)
         return models
     
@@ -137,6 +149,18 @@ class ConfigDict(Config):
     def __setitem__(self, i, v):
         assert isinstance(v, Config)
         self.configs[i] = v
+        
+    def __len__(self):
+        return len(self.configs)
+        
+    def keys(self):
+        return self.configs.keys()
+    
+    def values(self):
+        return self.configs.values()
+    
+    def items(self):
+        return self.configs.items()
     
     
 def get_config(m):
@@ -223,7 +247,7 @@ def _configurable(cls, **kwargs):
             if hasattr(self, k):
                 m = getattr(self, k)
                 c = get_config(m)
-                c = c or m
+                c = m if c is None else c
                 setattr(cfg, k, c)
         return cfg
     
