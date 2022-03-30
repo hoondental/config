@@ -191,17 +191,17 @@ def configurable(**kwargs):
     
     
 def _configurable(cls, **kwargs):
-    init_args = inspect.getfullargspec(cls.__init__)
-    init_arg_names = init_args.args[1:]
-    init_arg_defaults = init_args.defaults or []
+    init_args = inspect.getfullargspec(cls.__init__) # self 와 디폴트 인자 포함, *args 와 **kwargs 제외
+    init_arg_names = init_args.args[1:]  # self 제외한 argument 이름의 리스트
+    init_arg_defaults = init_args.defaults or [] # 디폴트 인자의 값
     len_names = len(init_arg_names)
     len_defaults = len(init_arg_defaults)
     len_non_defaults = len_names - len_defaults
-    cfgs_dict = {}
-    args_dict = {}
-    cfgargs_dict = {}
-    for i in range(len_names):
-        name = init_arg_names[i]
+    cfgs_dict = {} #  init_args 에 대한 {변수명:Config 또는 None}
+    args_dict = {} # init_args 에 대한 {변수명:초기값}
+    cfgargs_dict = {} # init_args 에 대한 {변수명:Config 또는 초기값}
+    for i, name in enumerate(init_arg_names): # range(len_names):
+#        name = init_arg_names[i]
         if name in kwargs.keys():
             value = kwargs[name]
         elif i >= len_non_defaults:
@@ -218,17 +218,21 @@ def _configurable(cls, **kwargs):
     def new__init__(self, *args, **kwargs):
         _args = []
         _kwargs = {}
-        for i, arg in enumerate(args):
+        for i, v in enumerate(args):
             k = init_arg_names[i]
-            _kwargs[k] = arg
-        for k, arg in kwargs.items():
-            _kwargs[k] = arg
+            _kwargs[k] = v
+        for k, v in kwargs.items():
+            _kwargs[k] = v
         for k in init_arg_names:
             if k in _kwargs.keys():
                 continue
-            arg = args_dict[k]
-            _kwargs[k] = arg.current_config().create_object() if hasattr(arg, 'current_config') else arg
+            v = args_dict[k]
+            _kwargs[k] = v
+#            _kwargs[k] = arg.current_config().create_object() if hasattr(arg, 'current_config') else arg # init 함수 인자로 Config 객체를 넣지 않음
         cls.old__init__(self, **_kwargs)        
+        for k, v in _kwargs.items():
+            if not hasattr(self, k):
+                setattr(self, k, v)    # __init__ 초기화 함수의 인자는 자동으로 self 의 어트리뷰트로 등록되어 있지 않으면 자동으로 등록함.
     cls.__init__ = new__init__        
      
     @classmethod
