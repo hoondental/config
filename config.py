@@ -220,14 +220,17 @@ def _configurable(cls, **kwargs):
         _kwargs = {}
         for i, v in enumerate(args):
             k = init_arg_names[i]
-            _kwargs[k] = v
+            c = get_config(v)
+            _kwargs[k] = v if c is None else c.create_object() # 생성자의 디폴트 인자가 nn.Module 인 경우 매번 새로 생성
         for k, v in kwargs.items():
-            _kwargs[k] = v
+            c = get_config(v)
+            _kwargs[k] = v if c is None else c.create_object()
         for k in init_arg_names:
             if k in _kwargs.keys():
                 continue
             v = args_dict[k]
-            _kwargs[k] = v
+            c = get_config(v)
+            _kwargs[k] = v if c is None else c.create_object()
 #            _kwargs[k] = arg.current_config().create_object() if hasattr(arg, 'current_config') else arg # init 함수 인자로 Config 객체를 넣지 않음
         cls.old__init__(self, **_kwargs)        
         for k, v in _kwargs.items():
